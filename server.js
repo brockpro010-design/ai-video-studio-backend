@@ -33,6 +33,7 @@ app.post('/api/videos', async (req, res) => {
   }
 
   try {
+    // Usando o modelo ModelScope text-to-video otimizado
     const response = await fetch("https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7b", {
       headers: {
         Authorization: `Bearer ${HF_TOKEN}`,
@@ -42,13 +43,24 @@ app.post('/api/videos', async (req, res) => {
       body: JSON.stringify({ inputs: prompt }),
     });
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: "Erro na IA: " + errText });
+      return res.status(response.status).json({ error: "Hugging Face: " + responseText });
     }
 
-    const videoBuffer = await response.arrayBuffer();
-    const base64Video = Buffer.from(videoBuffer).toString('base64');
+    // Verifica se a resposta é um binário de vídeo ou JSON de erro/carregamento
+    if (responseText.startsWith("{") || responseText.startsWith("[")) {
+      try {
+        const jsonErr = JSON.parse(responseText);
+        if (jsonErr.error) {
+          return res.status(400).json({ error: "IA: " + jsonErr.error });
+        }
+      } catch (e) {}
+    }
+
+    const videoBuffer = Buffer.from(responseText, 'binary');
+    const base64Video = videoBuffer.toString('base64');
     const dataUrl = `data:video/mp4;base64,${base64Video}`;
 
     return res.status(200).json({
@@ -60,7 +72,7 @@ app.post('/api/videos', async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ error: "Falha ao processar: " + error.message });
+    return res.status(500).json({ error: "Erro interno: " + error.message });
   }
 });
 
