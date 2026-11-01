@@ -3,23 +3,21 @@ const cors = require('cors');
 
 const app = express();
 
-// Libera requisições de qualquer site (Netlify, Claude, Celular, etc.)
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const HF_TOKEN = process.env.HF_TOKEN;
 
-// Rota de teste de conexão que o frontend chama
+// Rota principal e de saúde unificadas para evitar falhas de conexão
 app.get('/api/health', (req, res) => {
-  res.json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
+  res.status(200).json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
 });
 
 app.get('/', (req, res) => {
-  res.json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
+  res.status(200).json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
 });
 
-// Rota principal de geração de vídeo
 app.post('/api/videos', async (req, res) => {
   const { prompt } = req.body;
 
@@ -32,7 +30,6 @@ app.post('/api/videos', async (req, res) => {
   }
 
   try {
-    // Modelo de geração de vídeo da Hugging Face
     const response = await fetch("https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7b", {
       headers: {
         Authorization: `Bearer ${HF_TOKEN}`,
@@ -51,7 +48,6 @@ app.post('/api/videos', async (req, res) => {
     const base64Video = Buffer.from(videoBuffer).toString('base64');
     const dataUrl = `data:video/mp4;base64,${base64Video}`;
 
-    // Devolve o vídeo diretamente nos formatos aceitos pelo frontend
     return res.json({
       id: "job_" + Date.now(),
       status: "completed",
