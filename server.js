@@ -9,16 +9,19 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const HF_TOKEN = process.env.HF_TOKEN;
 
-// Rota principal e de saúde unificadas para evitar falhas de conexão
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({ status: "ok", message: "Backend ativo!" });
 });
 
 app.get('/', (req, res) => {
-  res.status(200).json({ status: "ok", message: "Backend AI VIDEO STUDIO ativo!" });
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({ status: "ok", message: "Backend ativo!" });
 });
 
 app.post('/api/videos', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  
   const { prompt } = req.body;
 
   if (!prompt || prompt.length < 10) {
@@ -41,14 +44,14 @@ app.post('/api/videos', async (req, res) => {
 
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(response.status).json({ error: "Erro na IA (Hugging Face): " + errText });
+      return res.status(response.status).json({ error: "Erro na IA: " + errText });
     }
 
     const videoBuffer = await response.arrayBuffer();
     const base64Video = Buffer.from(videoBuffer).toString('base64');
     const dataUrl = `data:video/mp4;base64,${base64Video}`;
 
-    return res.json({
+    return res.status(200).json({
       id: "job_" + Date.now(),
       status: "completed",
       progress: 100,
@@ -57,7 +60,7 @@ app.post('/api/videos', async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ error: "Falha ao processar vídeo: " + error.message });
+    return res.status(500).json({ error: "Falha ao processar: " + error.message });
   }
 });
 
