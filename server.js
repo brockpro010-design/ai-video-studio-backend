@@ -33,7 +33,10 @@ app.post('/api/videos', async (req, res) => {
   }
 
   try {
-    // Usando o modelo ModelScope text-to-video otimizado
+    // Configura um tempo limite de 120 segundos para a requisição da IA
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
     const response = await fetch("https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7b", {
       headers: {
         Authorization: `Bearer ${HF_TOKEN}`,
@@ -41,26 +44,20 @@ app.post('/api/videos', async (req, res) => {
       },
       method: "POST",
       body: JSON.stringify({ inputs: prompt }),
+      signal: controller.signal
     });
 
-    const responseText = await response.text();
+    clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "Hugging Face: " + responseText });
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!response.ok || !contentType.includes("video")) {
+      const errText = await response.text();
+      return res.status(400).json({ error: "Hugging Face (Aguarde aquecimento do modelo): " + errText.slice(0, 150) });
     }
 
-    // Verifica se a resposta é um binário de vídeo ou JSON de erro/carregamento
-    if (responseText.startsWith("{") || responseText.startsWith("[")) {
-      try {
-        const jsonErr = JSON.parse(responseText);
-        if (jsonErr.error) {
-          return res.status(400).json({ error: "IA: " + jsonErr.error });
-        }
-      } catch (e) {}
-    }
-
-    const videoBuffer = Buffer.from(responseText, 'binary');
-    const base64Video = videoBuffer.toString('base64');
+    const videoBuffer = await response.arrayBuffer();
+    const base64Video = Buffer.from(videoBuffer).toString('base64');
     const dataUrl = `data:video/mp4;base64,${base64Video}`;
 
     return res.status(200).json({
@@ -72,6 +69,9 @@ app.post('/api/videos', async (req, res) => {
     });
 
   } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ error: "A IA demorou muito para responder. Tente novamente em instantes." });
+    }
     return res.status(500).json({ error: "Erro interno: " + error.message });
   }
 });
